@@ -12,10 +12,16 @@ class ircOutputBuffer:
         self.irc = irc
         self.queue = []
         self.error = False
+        #Number of messages sent consecutively.
+        self.consecMessageCount = 0
 
     def __pop(self):
+        if self.consecMessageCount >= 5:
+            time.sleep(4)
+            self.consecMessageCount = 0
         if len(self.queue) == 0:
             self.waiting = False
+            self.consecMessageCount = 0
         else:
             self.sendImmediately(self.queue[0])
             self.queue = self.queue[1:]
@@ -34,6 +40,8 @@ class ircOutputBuffer:
             self.waiting = True
             self.sendImmediately(string)
             self.__startPopTimer()
+            self.consecMessageCount += 1
+
 
     def sendImmediately(self, string):
         # Sends the given string without buffering.
@@ -178,7 +186,7 @@ class ircBot(threading.Thread):
                         self.identifyLock = False
                     else:
                         self.outBuf.sendBuffered("WHOIS " + self.identifyNickCommands[0][0])
-            self.__callBind(msgtype, sender, headers[2:], message)
+            self.__callBind(msgtype, sender, headers, message)
 
     def __debugPrint(self, s):
         if self.debug:
@@ -223,7 +231,7 @@ class ircBot(threading.Thread):
         self.outBuf.sendBuffered("QUIT :" + qMessage)
         self.irc.close()
 
-    def identify(self, nick, approvedFunc, approvedParams, deniedFunc, deniedParams):
+    def identify(self, nick, passwd, approvedFunc, approvedParams, deniedFunc, deniedParams):
         self.__debugPrint("Verifying " + nick + "...")
         self.identifyNickCommands += [(nick, approvedFunc, approvedParams, deniedFunc, deniedParams)]
         # TODO this doesn't seem right
@@ -271,6 +279,16 @@ class ircBot(threading.Thread):
         if self.log_own_messages:
             self.log(recipient, 'PRIVMSG', self.name, [recipient], message)
         self.outBuf.sendBuffered("PRIVMSG " + recipient + " :" + message)
+
+    def do(self, recipient, message):
+        if self.log_own_messages:
+            self.log(recipient, '\001ACTION', self.name, [recipient], message)
+        self.outBuf.sendBuffered("PRIVMSG " + recipient + " :" + "\001ACTION " + message + "\001")
+
+    def notice(self, recipient, message):
+        if self.log_own_messages:
+            self.log(recipient, 'NOTICE', self.name, [recipient], message)
+        self.outBuf.sendBuffered("NOTICE " + recipient + " :" + message)
 
     def send(self, string):
         self.outBuf.sendBuffered(string)
