@@ -274,6 +274,7 @@ class ircBot(threading.Thread):
                 self.__processLine(line)
             if self.outBuf.isInError():
                 self.reconnect()
+        exit()
 
     def say(self, recipient, message):
         if self.log_own_messages:
@@ -295,6 +296,7 @@ class ircBot(threading.Thread):
 
     def stop(self):
         self.keepGoing = False
+        exit()
 
     def topic(self, channel, message):
         self.send('TOPIC ' + channel + ' :' + message)
